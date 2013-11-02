@@ -12,7 +12,7 @@ class Unauthorized(HttpResponse):
     status_code = 401
 
 
-def authentication(view=None, authenticator=None, www_authenticate=None):
+def authentication(view=None, authenticator=None, www_authenticate=None, response=None):
     """Check request's authentication.
 
     :param view: View or class-based view to decorate.
@@ -20,6 +20,8 @@ def authentication(view=None, authenticator=None, www_authenticate=None):
     method: `DEFAULT_AUTHENTICATOR` is used.
     :param www_authenticate: Header to send in the response as a request to the client to
     authenticate if the authentication failed.
+    :param response: HTTP response to send if authentication fails. By default a 401 response is
+    used.
 
     :return: HTTP 401 "Unauthorized" response if the authentication failed, otherwise the repsonse
     returned by `view`.
@@ -31,7 +33,7 @@ def authentication(view=None, authenticator=None, www_authenticate=None):
         def decorator(request, *args, **kwargs):
             if authenticator(request, *args, **kwargs):
                 return view(request, *args, **kwargs)
-            unauthorized = Unauthorized()
+            unauthorized = Unauthorized() if response is None else response
             if www_authenticate is not None:
                 unauthorized["WWW-Authenticate"] = www_authenticate
             return unauthorized

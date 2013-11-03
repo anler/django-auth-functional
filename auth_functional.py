@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from functools import wraps
 
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpRequest
 from django.contrib.auth.decorators import login_required as django_login_required
 
 
@@ -28,16 +28,19 @@ def authentication(view=None, authenticator=None, www_authenticate=None, respons
     """
     if authenticator is None:
         authenticator = DEFAULT_AUTHENTICATOR
+
     def wrapper(view):
         @wraps(view)
-        def decorator(request, *args, **kwargs):
-            if authenticator(request, *args, **kwargs):
-                return view(request, *args, **kwargs)
+        def decorator(*args, **kwargs):
+            auth_args = args[1:] if not isinstance(args[0], HttpRequest) else args
+            if authenticator(*auth_args, **kwargs):
+                return view(*args, **kwargs)
             unauthorized = Unauthorized() if response is None else response
             if www_authenticate is not None:
                 unauthorized["WWW-Authenticate"] = www_authenticate
             return unauthorized
         return decorator
+
     if view is not None:
         wrapper = wrapper(view)
     return wrapper

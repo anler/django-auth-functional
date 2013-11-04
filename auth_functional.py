@@ -26,7 +26,7 @@ def forbidden_response(*args, **kwargs):
 
 
 def cleaned_args(args):
-    if not isinstance(args[0], HttpRequest):
+    if args and not isinstance(args[0], HttpRequest):
         return args[1:]
     return args
 
@@ -91,3 +91,36 @@ def authorization(condition, response_factory=None):
             return response_factory(*args, **kwargs)
         return decorator
     return wrapper
+
+
+def or_(*conditions):
+    """Decorator that takes multiple condition functions and returns `True` if one is `True`.
+
+    :param conditions: Multiple condition functions.
+    """
+    def decorator(*args, **kwargs):
+        args = cleaned_args(args)
+        return any(condition(*args, **kwargs) for condition in conditions)
+    return decorator
+
+
+def and_(*conditions):
+    """Decorator that takes multiple condition functions and the if one is `False` returns `False`.
+
+    :param conditions: Multiple condition functions.
+    """
+    def decorator(*args, **kwargs):
+        args = cleaned_args(args)
+        return all(condition(*args, **kwargs) for condition in conditions)
+    return decorator
+
+
+def not_(condition):
+    """Decorator that takes a condition and negates its return value.
+
+    :param conditions: Condition function.
+    """
+    def decorator(*args, **kwargs):
+        args = cleaned_args(args)
+        return not condition(*args, **kwargs)
+    return decorator

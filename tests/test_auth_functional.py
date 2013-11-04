@@ -4,7 +4,7 @@ import pytest
 from django.http import HttpResponse, HttpRequest
 from django.views.generic import View
 
-from auth_functional import authentication, authorization
+from auth_functional import authentication, authorization, or_, and_, not_
 
 
 def hollow(request, *args, **kwargs):
@@ -14,6 +14,14 @@ def hollow(request, *args, **kwargs):
 
 def reject(request, *args, **kwargs):
     assert isinstance(request, HttpRequest)
+    return False
+
+
+def true(*args, **kwargs):
+    return True
+
+
+def false(*args, **kwargs):
     return False
 
 
@@ -141,3 +149,22 @@ def test_class_based_view_authorization(request):
     response = view(request)
 
     assert response.status_code == 200
+
+
+def test_or_decorator():
+    assert or_(false, true)()
+    assert or_(true, true)()
+    assert or_(true, false)()
+    assert not or_(false, false)()
+
+
+def test_or_decorator():
+    assert not and_(false, true)()
+    assert not and_(true, false)()
+    assert not and_(false, false)()
+    assert and_(true, true)()
+
+
+def test_not_decorator():
+    assert not_(false)()
+    assert not not_(true)()

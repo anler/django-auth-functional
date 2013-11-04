@@ -54,8 +54,8 @@ def test_status_code_is_403_if_authorization_failed(request, view):
 
 
 def test_custom_response_authentication(request, view):
-    not_found = HttpResponse(status=404)
-    view = authentication(view, response=not_found)
+    not_found = lambda *args, **kwargs: HttpResponse(status=404)
+    view = authentication(view, response_factory=not_found)
     response = view(request)
 
     assert response.status_code == 404
@@ -63,8 +63,8 @@ def test_custom_response_authentication(request, view):
 
 
 def test_custom_response_authorization(request, view):
-    not_found = HttpResponse(status=404)
-    rejected = authorization(condition=reject, response=not_found)
+    not_found = lambda *args, **kwargs: HttpResponse(status=404)
+    rejected = authorization(condition=reject, response_factory=not_found)
     view = rejected(view)
     response = view(request)
 

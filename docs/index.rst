@@ -41,6 +41,23 @@ Or, in case you're using aa class-base view:
 
 With that in place, all the non-authenticated requests are gonna receive an **HTTP 401 Unauthorized** response.
 
+
+Requesting client authentication
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When you want the user agent to authenticate itself towards the server, you can send a request for authentication using the ``WWW-Authenticate header``. Here's an example using basic authentication:
+
+.. code-block :: python
+
+    from auth_functional import authentication
+    from django.template.response import TemplateResponse
+
+    @authentication(www_authenticate='Basic realm="private area"')
+    def profile(request):
+        return TemplateResponse(request, 'user/profile.html')
+
+
+
 Returning a different response
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

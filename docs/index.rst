@@ -82,6 +82,108 @@ If you want to return a response different than the default **HTTP 401 Unauthori
         return TemplateResponse(request, 'user/profile.html')
 
 
+Authorizing your views
+----------------------
+
+In order to authorize your views all you need to do is decorate your view function with the properly named ``authorization`` decorator passing a **condition** callable that is in charge of allowing or not the access to the resource/controller/store:
+
+
+.. code-block :: python
+
+    from auth_functional import authentication, authorization
+    from django.template.response import TemplateResponse
+
+
+    def is_staff(request):
+        return request.user.is_staff
+
+
+    @authentication
+    @authorization(condition=is_staff)
+    def profile(request):
+        return TemplateResponse(request, 'user/profile.html')
+
+Or, in case you're using aa class-base view:
+
+.. code-block :: python
+
+    from auth_functional import authentication, authorization
+    from django.template.response import TemplateResponse
+    from django.views.generic import View
+
+
+    def is_staff(request):
+        return request.user.is_staff
+
+
+    class SomeView(View):
+        @authentication
+        @authorization(condition=is_staff)
+        def get(self, request):
+            return TemplateREsponse(request, 'user/profile.html')
+
+With that in place, all the non-authorized requests are gonna receive an **HTTP 403 Forbidden** response which means that the client doesn't have access.
+
+Returning a different response
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to return a response different than the default **HTTP 403 Forbidden** you can provide ``response_factory`` callable to the authorization decorator. If the authorization fails your ``response_factory`` callable will be called with **the same parameters as the view**.
+
+.. code-block :: python
+
+    from auth_functional import authentication, authorization
+    from django.template.response import TemplateResponse
+    from django import http
+
+
+    def forbidden_response(request):
+        response = http.HttpResponse(status=403)
+        if 'application/json' in request.META.get('HTTP_ACCEPT'):
+            response['Content-Type'] = 'application/json; charset=utf-8'
+        return response
+
+
+    def is_staff(request):
+        return request.user.is_staff
+
+
+    @authentication
+    @authorization(condition=is_staff, response_factory=forbidden_response)
+    def profile(request):
+        return TemplateResponse(request, 'user/profile.html')
+
+
+Combining multiple conditions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can combine different condition callables by using the ``and_``, ``or_`` and ``not_`` decorators:
+
+.. code-block :: python
+
+    from auth_functional import authentication, authorization, and_, not_
+    from django.template.response import TemplateResponse
+    from django import http
+
+
+    def forbidden_response(request):
+        response = http.HttpResponse(status=403)
+        if 'application/json' in request.META.get('HTTP_ACCEPT'):
+            response['Content-Type'] = 'application/json; charset=utf-8'
+        return response
+
+
+    def is_staff(request):
+        return request.user.is_staff
+
+    def is_admin(request):
+        return request.user.is_admin
+
+    @authentication
+    @authorization(condition=and_(is_staff, _not(is_admin)), response_factory=forbidden_response)
+    def profile(request):
+        return TemplateResponse(request, 'user/profile.html')
+
+
 Indices and tables
 ==================
 

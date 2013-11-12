@@ -158,7 +158,7 @@ def test_or_decorator():
     assert not or_(false, false)()
 
 
-def test_or_decorator():
+def test_and_decorator():
     assert not and_(false, true)()
     assert not and_(true, false)()
     assert not and_(false, false)()

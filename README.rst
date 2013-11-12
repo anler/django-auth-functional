@@ -27,4 +27,4 @@ Or, directly from the main repository:
 
 See `project's website`_ for more information.
 
-.. _project's website: http://github.com/ikame/django-auth-functional
+.. _project's website: http://django-auth-functional.readthedocs.org/en/latest/

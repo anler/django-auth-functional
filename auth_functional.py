@@ -124,3 +124,20 @@ def not_(condition):
         args = cleaned_args(args)
         return not condition(*args, **kwargs)
     return decorator
+
+
+class RequestCacheMiddleware(object):
+    """Middleware that set a dict-based cache to the request only available during its lifecycle.
+    """
+    def process_request(self, request):
+        type(request).cache = DictCacheDescriptor()
+
+
+class DictCacheDescriptor(object):
+    def __init__(self, cache=None):
+        if cache is None:
+            cache = {}
+        self.cache = cache
+
+    def __get__(self, obj, type=None):
+        return self.cache

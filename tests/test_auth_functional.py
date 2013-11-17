@@ -4,7 +4,7 @@ import pytest
 from django.http import HttpResponse, HttpRequest
 from django.views.generic import View
 
-from auth_functional import authentication, authorization, or_, and_, not_
+from auth_functional import authentication, authorization, or_, and_, not_, RequestCacheMiddleware
 
 
 def hollow(request, *args, **kwargs):
@@ -36,6 +36,11 @@ def request():
     from django.test.client import RequestFactory
     factory = RequestFactory()
     return factory.get('/some-url')
+
+
+@pytest.fixture
+def middleware():
+    return RequestCacheMiddleware()
 
 
 @pytest.fixture
@@ -168,3 +173,19 @@ def test_and_decorator():
 def test_not_decorator():
     assert not_(false)()
     assert not not_(true)()
+
+
+def test_request_cache(request, middleware, view):
+    cached_object = object()
+
+    def set_something(request):
+        request.cache['something'] = cached_object
+        return True
+
+    set_something = authorization(condition=set_something)
+    view = set_something(view)
+    middleware.process_request(request)
+    response = view(request)
+
+    assert response.status_code == 200
+    assert request.cache['something'] == cached_object

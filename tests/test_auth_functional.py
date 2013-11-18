@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import pytest
 
+import mock
+
 from django.http import HttpResponse, HttpRequest
 from django.views.generic import View
 
-from auth_functional import authentication, authorization, or_, and_, not_, RequestCacheMiddleware
+from auth_functional import (
+    authentication, authorization, or_, and_, not_, RequestFixtureMiddleware, register_fixture)
 
 
 def hollow(request, *args, **kwargs):
@@ -40,7 +43,7 @@ def request():
 
 @pytest.fixture
 def middleware():
-    return RequestCacheMiddleware()
+    return RequestFixtureMiddleware()
 
 
 @pytest.fixture
@@ -189,3 +192,37 @@ def test_request_cache(request, middleware, view):
 
     assert response.status_code == 200
     assert request.cache['something'] == cached_object
+
+
+def test_request_fixture(request, middleware, view):
+    def set_something(request):
+        request.fixture.something() == 'cached_value'
+        return True
+
+    f = mock.Mock()
+    register_fixture('something', f)
+    middleware.process_request(request)
+    set_something = authorization(condition=set_something)
+    view = set_something(view)
+    response = view(request)
+    assert response.status_code == 200
+    f.assert_called_once_with()
+
+
+def test_request_fixture_cache(request, middleware, view):
+    def set_something(request):
+        request.fixture.something() == 'cached_value'
+        return True
+
+    def get_something(request):
+        assert request.fixture.something() == 'cached_value'
+        return True
+
+    f = mock.Mock(return_value='cached_value')
+    register_fixture('something', f)
+    middleware.process_request(request)
+    set_something = authorization(condition=and_(set_something, get_something))
+    view = set_something(view)
+    response = view(request)
+    assert response.status_code == 200
+    f.assert_called_once_with()

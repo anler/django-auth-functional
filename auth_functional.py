@@ -126,11 +126,11 @@ def not_(condition):
     return decorator
 
 
-class RequestCacheMiddleware(object):
-    """Middleware that set a dict-based cache to the request only available during its lifecycle.
-    """
+class RequestFixtureMiddleware(object):
+    """Middleware that sets a fixture object with registered fixture functions as methods."""
     def process_request(self, request):
         type(request).cache = DictCacheDescriptor()
+        type(request).fixture = FixtureDescriptor()
 
 
 class DictCacheDescriptor(object):
@@ -139,5 +139,55 @@ class DictCacheDescriptor(object):
             cache = {}
         self.cache = cache
 
-    def __get__(self, obj, type=None):
+    def __get__(self, request, type=None):
         return self.cache
+
+
+class FixtureDescriptor(object):
+    def __get__(self, request, type=None):
+        return FixtureAccessor(fixtures, request.cache)
+
+
+class FixtureAccessor(object):
+    class hashabledict(dict):
+        def __hash__(self):
+            return hash(tuple(sorted(self.items())))
+
+    def __init__(self, fixtures, cache):
+        self.fixtures = fixtures
+        self.cache = cache
+
+    def _get_cache_key_from_params(self, args, kwargs):
+        return args, self.hashabledict(kwargs)
+
+    def __getattr__(self, name):
+        def f(*args, **kwargs):
+            cache_key = self._get_cache_key_from_params(args, kwargs)
+            if cache_key in self.cache:
+                result = self.cache[cache_key]
+            else:
+                result = self.fixtures.get(name)(*args, **kwargs)
+                self.cache[cache_key] = result
+            return result
+
+        return f
+
+
+class Fixtures(object):
+    def __init__(self):
+        self._register = {}
+
+    def __getattr__(self, name):
+        if name not in self._register:
+            raise AttributeError('{!r} object has not attribute {!r}'.format(type(self), name))
+        return self._register[name]
+
+    def register(self, name, f):
+        self._register[name] = f
+
+    def get(self, name, default=None):
+        return self._register.get(name, default)
+
+
+fixtures = Fixtures()
+register_fixture = fixtures.register

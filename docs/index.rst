@@ -184,6 +184,72 @@ You can combine different condition callables by using the ``and_``, ``or_`` and
         return TemplateResponse(request, 'user/profile.html')
 
 
+Improving performance by using request cache
+--------------------------------------------
+
+When using multiple conditions you may end repeating operations to fetch the objects and check permissions.
+Let's say you have the following two conditions, one that checks the user is the owner of a video, and the
+other that the user can play the video (some sort of premium feature, whatever):
+
+.. code-block :: python
+
+    from auth_functional import authentication, authorization, and_
+    from django.template.response import TemplateResponse
+    from django import http
+    from myapp.models import Video
+
+
+    def can_download_video(request, video_id):
+        video = Video.objects.filter(pk=video_id).get()
+        return video.user == request.user
+
+
+    def can_play_video(request, video_id):
+        video = Video.objects.filter(pk=video_id).get()
+        return video.has_be_played_by(request.user)
+
+
+    @authentication
+    @authorization(condition=and_(is_owner_of_video, can_play_video)
+    def play_video(request, video_id):
+        return TemplateResponse(request, 'user/video.html')
+
+
+As you can see, you ended up fetching the same video twice from the database
+``Video.objects.filter(pk=video_id).get()``. You could create another condition that checks
+both conditions but that would miss the point of creating smaller conditions and combine
+them with ``and_`` avoiding the conditions to be too coupled with the logic of your app.
+
+A workaround to avoid this duplicated logic to fetch a needed objects is to use the
+``request.fixture`` to fetch and cache the object for the current request:
+
+.. code-block :: python
+
+    from auth_functional import authentication, authorization, and_
+    from django.template.response import TemplateResponse
+    from django import http
+    from myapp.models import Video
+
+    auth_functional.install_request_fixture('video', Video.objects.get)
+
+
+    def can_download_video(request, video_id):
+        return request.fixture.video(pk=video_id).user == request.user
+
+
+    def can_play_video(request, video_id):
+        return request.fixture.video(pk=video_id).has_be_played_by(request.user)
+
+
+    @authentication
+    @authorization(condition=and_(is_owner_of_video, can_play_video)
+    def play_video(request, video_id):
+        return TemplateResponse(request, 'user/video.html')
+
+With that in place the first time you access the fixture your registered callable is going
+to be called and the result will be cached **but only during the current request lifetime**.
+This way any subsequent call to the fixture will return only the cached value.
+
 Indices and tables
 ==================
 

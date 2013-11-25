@@ -2,6 +2,8 @@
 from functools import wraps
 
 from django.http import HttpResponse, HttpRequest
+from django.conf import settings
+from django.core import urlresolvers
 from django.contrib.auth.decorators import login_required as django_login_required
 
 
@@ -130,7 +132,7 @@ class RequestFixtureMiddleware(object):
     """Middleware that sets a fixture object with registered fixture functions as methods."""
     def process_request(self, request):
         type(request).cache = DictCacheDescriptor()
-        type(request).fixture = FixtureDescriptor()
+        type(request).fixtures = FixtureDescriptor()
 
 
 class DictCacheDescriptor(object):
@@ -145,32 +147,35 @@ class DictCacheDescriptor(object):
 
 class FixtureDescriptor(object):
     def __get__(self, request, type=None):
-        return FixtureAccessor(fixtures, request.cache)
+        return FixtureAccessor(fixtures, request, request.cache)
 
 
 class FixtureAccessor(object):
-    class hashabledict(dict):
-        def __hash__(self):
-            return hash(tuple(sorted(self.items())))
-
-    def __init__(self, fixtures, cache):
+    def __init__(self, fixtures, request, cache):
         self.fixtures = fixtures
+        self.request = request
         self.cache = cache
 
-    def _get_cache_key_from_params(self, args, kwargs):
-        return args, self.hashabledict(kwargs)
-
     def __getattr__(self, name):
-        def f(*args, **kwargs):
-            cache_key = self._get_cache_key_from_params(args, kwargs)
-            if cache_key in self.cache:
-                result = self.cache[cache_key]
-            else:
-                result = self.fixtures.get(name)(*args, **kwargs)
-                self.cache[cache_key] = result
-            return result
+        if name in self.cache:
+            result = self.cache[name]
+        else:
+            view_args, view_kwargs = self.get_resolver_args_and_kwargs()
+            result = self.fixtures.get(name)(*view_args, **view_kwargs)
+            self.cache[name] = result
 
-        return f
+        return result
+
+    def get_resolver_args_and_kwargs(self):
+        if hasattr(self.request, 'resolver_match'):
+            _, args, kwargs = self.request.resolver_match
+        else:
+            urlconf = getattr(self.request, 'urlconf', settings.ROOT_URLCONF)
+            urlresolvers.set_urlconf(urlconf)
+            resolver = urlresolvers.RegexURLResolver(r'^/', urlconf)
+            _, args, kwargs = resolver.resolve(self.request.path_info)
+
+        return args, kwargs
 
 
 class Fixtures(object):
